@@ -87,7 +87,7 @@ class SRCNN(object):
 	
   def build_model(self):
 	x = tf.placeholder(tf.float32, [None, n_steps, n_inputs]) #行数为n_input,列数为n_step,none 代表 n_sample
-	y = tf.placeholder(tf.float32, [None, n_classes])
+	y = tf.placeholder(tf.float32, [None, n_outputs])
 
 	# Define weights
 	weights = {
@@ -96,16 +96,16 @@ class SRCNN(object):
 		'in': tf.Variable(tf.random_normal([n_inputs, n_hidden_units])), #生成一个（n_inputs,n_hidden_units）的矩阵 n_inputs 为row number
 																		 #output为128 means 和weights矩阵相乘后会生成一个column number为128的矩阵
 		# (128, 10)
-		'out': tf.Variable(tf.random_normal([n_hidden_units, n_classes]))
+		'out': tf.Variable(tf.random_normal([n_hidden_units, n_outputs]))
 	}
 	biases = {
 		# (128, )
 		'in': tf.Variable(tf.constant(0.1, shape=[n_hidden_units, ])),
 		# (10, )
-		'out': tf.Variable(tf.constant(0.1, shape=[n_classes, ]))
+		'out': tf.Variable(tf.constant(0.1, shape=[n_outputs, ]))
 	}
 	
-	
+    '''
     self.images = tf.placeholder(tf.float32, [None, self.image_size, self.image_size, self.c_dim], name='images')
     self.labels = tf.placeholder(tf.float32, [None, self.label_size, self.label_size, self.c_dim], name='labels')
     
@@ -119,7 +119,7 @@ class SRCNN(object):
       'b2': tf.Variable(tf.zeros([24]), name='b2'),
       'b3': tf.Variable(tf.zeros([1]), name='b3')
     }
-
+    '''
 	
 	pred = RNN(x, weights, biases)
 	cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
@@ -128,12 +128,12 @@ class SRCNN(object):
 	correct_pred = tf.equal(tf.argmax(pred, 1), tf.argmax(y, 1))
 	accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 	
-	
+	'''
     self.pred = self.model()
 
     # Loss function (MSE)
     self.loss = tf.reduce_mean(tf.square(self.labels - self.pred))
-
+	'''
     self.saver = tf.train.Saver()
 
   def train(self, config):   
