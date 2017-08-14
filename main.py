@@ -6,7 +6,7 @@ import tensorflow as tf
 
 import pprint
 import os
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 flags = tf.app.flags
 flags.DEFINE_integer("epoch", 2000, "Number of epoch [10]")
 flags.DEFINE_integer("batch_size", 128, "The size of batch images [128]")
@@ -35,10 +35,10 @@ def main(_):
 
   with tf.Session() as sess:
     srcnn = SRCNN(sess, 
-                  image_size=FLAGS.image_size, 
-                  label_size=FLAGS.label_size, 
+                  n_inputs=FLAGS.n_inputs, 
+                  n_outputs=FLAGS.n_outputs, 
                   batch_size=FLAGS.batch_size,
-                  c_dim=FLAGS.c_dim, 
+                  n_steps=FLAGS.n_steps, 
                   checkpoint_dir=FLAGS.checkpoint_dir,
                   sample_dir=FLAGS.sample_dir)
 
