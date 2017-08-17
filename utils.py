@@ -2,7 +2,7 @@
 Scipy version > 0.18 is needed, due to 'mode' option from scipy.misc.imread function
 """
 import copy
-import scipy.io 
+import scipy.io
 import os
 import glob
 import h5py
@@ -21,7 +21,7 @@ FLAGS = tf.app.flags.FLAGS
 def read_data(path):
   """
   Read h5 format data file
-  
+
   Args:
     path: file path of desired file
     data: '.h5' file format that contains train data values
@@ -34,7 +34,7 @@ def read_data(path):
 
 def preprocess(path, scale=3):
   """
-  Preprocess single image file 
+  Preprocess single image file
     (1) Read original image as YCbCr format (and grayscale as default)
     (2) Normalize
     (3) Apply image file with bicubic interpolation
@@ -47,7 +47,7 @@ def preprocess(path, scale=3):
   image = scipy.io.loadmat(path)
   label_ = image
 
-  #input_ = 
+  #input_ =
   input_ = scipy.ndimage.interpolation.zoom(input_, (scale/1.), prefilter=False)
 
   return input_, label_
@@ -56,7 +56,7 @@ def prepare_data(sess, dataset):
   """
   Args:
     dataset: choose train dataset or test dataset
-    
+
     For train dataset, output data would be ['.../t1.bmp', '.../t2.bmp', ..., '.../t99.bmp']
   """
   if FLAGS.is_train:
@@ -96,7 +96,7 @@ def imread(path, is_grayscale=True):
 def modcrop(image, scale=3):
   """
   To scale down and up the original image, first thing to do is to have no remainder while scaling operation.
-  
+
   We need to find modulo of height (and width) and scale factor.
   Then, subtract the modulo from height (and width) of original image size.
   There would be no remainder even after scaling operation.
@@ -134,17 +134,16 @@ def input_setup(sess, config):
   Pad=10
   # Load data path
   if config.is_train:
-    dataset="Train"
+    dataset="train_data"
     data_dir=os.path.join(os.getcwd(),dataset)
     data = glob.glob(os.path.join(data_dir,"*.mat"))
   else:
-    dataset='Test'
+    dataset='test_data'
     data_dir=os.path.join(os.getcwd(),dataset)
     data = glob.glob(os.path.join(data_dir,"phan.mat"))
 
   sub_input_sequence = []
   sub_label_sequence = []
-  padding = abs(config.image_size - config.label_size) / 2 # 6
 
   if config.is_train:
     for i in range(len(data)):
@@ -158,38 +157,23 @@ def input_setup(sess, config):
         '''
       imgg=scipy.io.loadmat(data[i])
       image=imgg['R']
+      image=image/image.max()
       h,w=image.shape
-      for x in range(20, MAX_S, Stride):
-        for y in range(70, (h-x), Pad):
-          sub_input = copy.deepcopy(image)
-          sub_input[y:(y+x)]=0
-          sub_label = copy.deepcopy(image)
-          #RRR=copy.deepcopy(sub_input)
-          L1=y
-          L2=y+x
-          if (L1 ==0 or L1 == h-1):
-            LL1=h-L1-1
-          else:
-            LL1=L1-1
-          if (L2 ==0 or L2 == h-1):
-            LL2=h-L2-1
-          else:
-            LL2=L2+1
-          r=sub_input[LL2]-sub_input[LL1]
-          for ii in range(L1,L2):
-            sub_input[ii]=r/(L2-L1+2)*(ii-L1+1)+sub_input[LL1]
-          '''
-          image_path=os.path.join(os.getcwd(),config.sample_dir)
-          image_name='train_image'+str(y*10+x)+'.mat'
-          image_path=os.path.join(image_path,image_name)
-          scipy.io.savemat(image_path,{'R':RRR})
-          '''
-          # Make channel value
-          sub_input = sub_input.reshape([config.image_size, config.image_size, 1])  
-          sub_label = sub_label.reshape([config.label_size, config.label_size, 1])
+      for y in range(config.n_steps, (h-(config.out_step))):
+        sub_input = image[(y-config.n_steps):y,:]
+        sub_label = (image[y:(y+config.out_step),:])
+        '''
+        image_path=os.path.join(os.getcwd(),config.sample_dir)
+        image_name='train_image'+str(y*10+x)+'.mat'
+        image_path=os.path.join(image_path,image_name)
+        scipy.io.savemat(image_path,{'R':RRR})
+        '''
+        # Make channel value
+        #sub_input = sub_input.reshape([config.n_steps, config.n_inputs, 1])
+        #sub_label = sub_label.reshape([config.out_step, config.n_outputs, 1])
 
-          sub_input_sequence.append(sub_input)
-          sub_label_sequence.append(sub_label)
+        sub_input_sequence.append(sub_input)
+        sub_label_sequence.append(sub_label)
 
   else:
     imgg=scipy.io.loadmat(data[0])
@@ -197,9 +181,9 @@ def input_setup(sess, config):
     h,w=image.shape
     sub_input=copy.deepcopy(image)
     sub_label=copy.deepcopy(image)
-    
-    sub_input = sub_input.reshape([config.image_size, config.image_size, 1])  
-    sub_label = sub_label.reshape([config.label_size, config.label_size, 1])
+
+    #sub_input = sub_input.reshape([config.image_size, config.image_size, 1])
+    #sub_label = sub_label.reshape([config.label_size, config.label_size, 1])
     sub_input_sequence.append(sub_input)
     sub_label_sequence.append(sub_label)
     '''
@@ -211,7 +195,7 @@ def input_setup(sess, config):
       h, w = input_.shape
     '''
     # Numbers of sub-images in height and width of image are needed to compute merge operation.
-    nx = ny = 0 
+    nx = ny = 0
     '''
     for x in range(0, MAX_S , Stride):
       nx += 1; ny = 0
@@ -220,19 +204,19 @@ def input_setup(sess, config):
         sub_input = copy.deepcopy(image)
         sub_input[y:(y+x)]=0
         sub_label = copy.deepcopy(image)
-        
-        R=copy.deepcopy(sub_input)    
+
+        R=copy.deepcopy(sub_input)
         image_path=os.path.join(os.getcwd(),config.sample_dir)
         image_name='test_image'+str(ny*10+nx)+'.mat'
         image_path=os.path.join(image_path,image_name)
         scipy.io.savemat(image_path,{'R':R})
-        
-        sub_input = sub_input.reshape([config.image_size, config.image_size, 1])  
+
+        sub_input = sub_input.reshape([config.image_size, config.image_size, 1])
         sub_label = sub_label.reshape([config.label_size, config.label_size, 1])
         sub_input_sequence.append(sub_input)
         sub_label_sequence.append(sub_label)
     '''
-    
+
   """
   len(sub_input_sequence) : the number of sub_input (33 x 33 x ch) in one image
   (sub_input_sequence[0]).shape : (33, 33, 1)
@@ -251,7 +235,7 @@ def input_setup(sess, config):
   if not config.is_train:
     return nx, ny
 
-  
+
 def imsave(image, path):
   return scipy.misc.imsave(path, image)
 
