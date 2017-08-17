@@ -9,10 +9,11 @@ import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 flags = tf.app.flags
 flags.DEFINE_integer("epoch", 2000, "Number of epoch [10]")
-flags.DEFINE_integer("batch_size", 128, "The size of batch images [128]")
+flags.DEFINE_integer("batch_size", 16, "The size of batch images [128]")
 flags.DEFINE_integer("n_inputs", 128, "The size of image to use [33]")
 flags.DEFINE_integer("n_outputs", 128, "The size of image to use [33]")
-flags.DEFINE_integer("n_steps", 128, "The size of label to produce [21]")
+flags.DEFINE_integer("out_step", 4, "The size of image to use [33]")
+flags.DEFINE_integer("n_steps", 64, "The size of label to produce [21]")
 flags.DEFINE_integer("n_hidden_units", 128, "The size of label to produce [21]")
 flags.DEFINE_float("learning_rate", 1e-4, "The learning rate of gradient descent algorithm [1e-4]")
 flags.DEFINE_integer("c_dim", 1, "Dimension of image color. [1]")
@@ -34,16 +35,17 @@ def main(_):
     os.makedirs(FLAGS.sample_dir)
 
   with tf.Session() as sess:
-    srcnn = SRCNN(sess, 
-                  n_inputs=FLAGS.n_inputs, 
-                  n_outputs=FLAGS.n_outputs, 
+    srcnn = SRCNN(sess,
+                  n_inputs=FLAGS.n_inputs,
+                  n_outputs=FLAGS.n_outputs,
                   batch_size=FLAGS.batch_size,
-                  n_steps=FLAGS.n_steps, 
+                  n_steps=FLAGS.n_steps,
+                  out_step=FLAGS.out_step,
+                  n_hidden_units=FLAGS.n_hidden_units,
                   checkpoint_dir=FLAGS.checkpoint_dir,
                   sample_dir=FLAGS.sample_dir)
 
     srcnn.train(FLAGS)
-    
-    
+
 if __name__ == '__main__':
   tf.app.run()
