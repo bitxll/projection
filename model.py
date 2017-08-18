@@ -23,6 +23,7 @@ class SRCNN(object):
                n_steps=128,
                out_step=4,
                n_hidden_units=128,
+               is_train=True,
                checkpoint_dir=None,
                sample_dir=None):
 
@@ -33,7 +34,7 @@ class SRCNN(object):
     self.out_step = out_step
     self.batch_size = batch_size
     self.n_hidden_units = n_hidden_units
-
+    self.is_train = is_train
     self.checkpoint_dir = checkpoint_dir
     self.sample_dir = sample_dir
     self.build_model()
@@ -43,8 +44,7 @@ class SRCNN(object):
 
     # transpose the inputs shape from
     # X ==> (128 batch * 28 steps, 28 inputs)
-    X = tf.reshape(X, [-1, self.n_inputs])#-1 表示自动补齐，使得和原来array中的总数一致
-    # into hidden
+    X = tf.reshape(X, [-1, self.n_inputs])#-1 表示自动补齐，使得和原来array中的总数一臿    # into hidden
     # X_in = (128 batch * 28 steps, 128 hidden)
     X_in = tf.matmul(X, weights['in']) + biases['in']
     # X_in ==> (128 batch, 28 steps, 128 hidden)
@@ -55,14 +55,17 @@ class SRCNN(object):
 
     # basic LSTM Cell.
     #forget_bias=1.0 的意思就是先不要打开forget的gate即不忘记之前的state
-    #n_hidden_unit 是lstm cell中的神经元有多少个
+    #n_hidden_unit 是lstm cell中的神经元有多少丿
     if int((tf.__version__).split('.')[1]) < 12 and int((tf.__version__).split('.')[0]) < 1:
         lstm_cell = tf.nn.rnn_cell.BasicLSTMCell(self.n_hidden_units, forget_bias=1.0, state_is_tuple=True)
     else:
         def lstm_cell():
-            lstm = tf.contrib.rnn.BasicLSTMCell(self.n_hidden_units)
-            drop = tf.contrib.rnn.DropoutWrapper(lstm)
-            return drop
+            if self.is_train:
+                lstm = tf.contrib.rnn.BasicLSTMCell(self.n_hidden_units)
+                lstm = tf.contrib.rnn.DropoutWrapper(lstm)
+            else:
+                lstm = tf.contrib.rnn.BasicLSTMCell(self.n_hidden_units)
+            return lstm
     cell = tf.contrib.rnn.MultiRNNCell([lstm_cell() for _ in range(self.out_step)],state_is_tuple=True)
     # lstm cell is divided into two parts (c_state, m_state)
     init_state = cell.zero_state(self.batch_size, dtype=tf.float32)
@@ -75,17 +78,14 @@ class SRCNN(object):
     # dynamic_rnn receive Tensor (batch, steps, inputs) or (steps, batch, inputs) as X_in.
     # Make sure the time_major is changed accordingly.
     outputs, final_state = tf.nn.dynamic_rnn(cell, X_in, initial_state=init_state, time_major=False)
-    #实际上，上面这个函数里面也有递归，每一次time step都要在一个cell里面递归一次，28个n_step结束后才算一个batch结束。
-    #一共有batch_size个cell，这个cell结束后state传给下一个cell。这些batch_size个cell可以看成一个整体
-    # http://r2rt.com/styles-of-truncated-backpropagation.html
+    #实际上，上面这个函数里面也有递归，每一次time step都要在一个cell里面递归一次，28个n_step结束后才算一个batch结束〿    #一共有batch_size个cell，这个cell结束后state传给下一个cell。这些batch_size个cell可以看成一个整使    # http://r2rt.com/styles-of-truncated-backpropagation.html
     # hidden layer for output as the final results
     #############################################
     #final = final_state[0][1]
     final = tf.concat([final_state[i][1] for i in range(self.out_step)],0)
     #final=tf.cast(final,[-1,self.n_hidden_units])
     results = tf.matmul(final, weights['out']) + biases['out']
-    self.outputs = outputs
-    self.final_state = final_state
+    results = tf.maximum(0.0,results)
     # # or
     # unpack to list [(batch, outputs)..] * steps
     #if int((tf.__version__).split('.')[1]) < 12 and int((tf.__version__).split('.')[0]) < 1:
@@ -100,11 +100,10 @@ class SRCNN(object):
     self.labels = tf.placeholder(tf.float32, [None, self.out_step,self.n_outputs])
     # Define weights
     weights = {
-        # (28, 128) input， output
-        # rnn cell的input和output各有一个hidden layer 夹着它
+        # (28, 128) input＿output
+        # rnn cell的input和output各有一个hidden layer 夹着宿
         'in': tf.Variable(tf.random_normal([self.n_inputs, self.n_hidden_units])), #生成一个（n_inputs,n_hidden_units）的矩阵 n_inputs 为row number
-        																 #output为128 means 和weights矩阵相乘后会生成一个column number为128的矩阵
-        # (128, 10)
+        																 #output丿28 means 和weights矩阵相乘后会生成一个column number丿28的矩阿        # (128, 10)
         'out': tf.Variable(tf.random_normal([self.n_hidden_units, self.n_outputs]))
     }
 
@@ -152,7 +151,7 @@ class SRCNN(object):
       if not os.path.isfile(data_dir):
         input_setup(self.sess, config)
     else:
-      nx, ny = input_setup(self.sess, config)
+      input_setup(self.sess, config)
     if config.is_train:
       data_dir = os.path.join('./{}'.format(config.checkpoint_dir), "train.h5")
     else:
@@ -174,34 +173,45 @@ class SRCNN(object):
 
     if config.is_train:
       print("Training...")
+      with open("./log",'a') as f:
+        for ep in range(config.epoch):
+          # Run by batch images
+          batch_idxs = len(train_data) // config.batch_size
+          err_total=0.0
+          for idx in range(0, batch_idxs):
+            batch_images = train_data[idx*config.batch_size : (idx+1)*config.batch_size]
+            batch_labels = train_label[idx*config.batch_size : (idx+1)*config.batch_size]
+            counter += 1
+            _, err = self.sess.run([self.train_op, self.loss], feed_dict={self.images: batch_images, self.labels: batch_labels})
+            '''
+            outputs,final_state = self.sess.run([self.outputs, self.final_state], feed_dict={self.images: batch_images, self.labels: batch_labels})
+            print outputs.shape
+            '''
+            if counter % 10 == 0:
+              print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" \
+                % ((ep+1), counter, time.time()-start_time, err))
 
-      for ep in range(config.epoch):
-        # Run by batch images
-        batch_idxs = len(train_data) // config.batch_size
-        for idx in range(0, batch_idxs):
-          batch_images = train_data[idx*config.batch_size : (idx+1)*config.batch_size]
-          batch_labels = train_label[idx*config.batch_size : (idx+1)*config.batch_size]
-          counter += 1
-          _, err = self.sess.run([self.train_op, self.loss], feed_dict={self.images: batch_images, self.labels: batch_labels})
-          '''
-          outputs,final_state = self.sess.run([self.outputs, self.final_state], feed_dict={self.images: batch_images, self.labels: batch_labels})
-          print outputs.shape
-          '''
-          if counter % 10 == 0:
-            print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" \
-              % ((ep+1), counter, time.time()-start_time, err))
-
-          if counter % 500 == 0:
-            self.save(config.checkpoint_dir, counter)
-
+            if counter % 500 == 0:
+              self.save(config.checkpoint_dir, counter)
+            err_total+=err
+          print("Epoch: [%2d], loss: [%.8f]" \
+                % ((ep+1), err_total))
+          f.write("Epoch: [%2d], loss: [%.8f]\n" \
+                % ((ep+1), err_total))
+          f.flush()
     else:
       print("Testing...")
 
       #eval():将字符串str当成有效的表达式来求值并返回计算结果
       result = self.pred.eval({self.images: train_data})
+      #result = self.sess.run(self.pred,{self.images:train_data})
       print(type(result))
       print(result.shape)
-
+      print(type(train_data))
+      print(train_data.shape)
+      result1=np.vstack((np.squeeze(train_data),result))
+      plt.imshow(result1)
+      plt.pause(10)
       #result = merge(result, [nx, ny])
       result = result.squeeze()
       image_path = os.path.join(os.getcwd(), config.sample_dir)
