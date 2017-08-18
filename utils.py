@@ -178,9 +178,10 @@ def input_setup(sess, config):
   else:
     imgg=scipy.io.loadmat(data[0])
     image=imgg['R']
+    image = image/image.max()
     h,w=image.shape
-    sub_input=copy.deepcopy(image)
-    sub_label=copy.deepcopy(image)
+    sub_input=image[:config.n_steps,:]
+    sub_label=image[config.n_steps:(config.n_steps+config.out_step),:]
 
     #sub_input = sub_input.reshape([config.image_size, config.image_size, 1])
     #sub_label = sub_label.reshape([config.label_size, config.label_size, 1])
@@ -195,7 +196,7 @@ def input_setup(sess, config):
       h, w = input_.shape
     '''
     # Numbers of sub-images in height and width of image are needed to compute merge operation.
-    nx = ny = 0
+    #nx = ny = 0
     '''
     for x in range(0, MAX_S , Stride):
       nx += 1; ny = 0
@@ -231,10 +232,10 @@ def input_setup(sess, config):
   '''
 
   make_data(sess, arrdata, arrlabel)
-
+  '''
   if not config.is_train:
     return nx, ny
-
+  '''
 
 def imsave(image, path):
   return scipy.misc.imsave(path, image)
