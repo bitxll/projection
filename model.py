@@ -143,7 +143,7 @@ class SRCNN(object):
     # Loss function (MSE)
     self.loss = tf.reduce_mean(tf.square(self.labels - self.pred))
     '''
-    self.saver = tf.train.Saver()
+    self.saver = tf.train.Saver(tf.all_variables(),max_to_keep = 10)
 
   def train(self, config):
     if config.is_train:
